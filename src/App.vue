@@ -1,17 +1,36 @@
 <template>
   <div>
-    <Monaco
-        height="600"
-        theme="vs-dark"
-        @mounted="onMounted"
-        >
-    </Monaco>
-    <button @click="clickHandler">Run Code</button>
-    <button @click="testCode">Test Code</button>
+    <div class="left">
+      <Monaco
+          height="200"
+          theme="vs-dark"
+          :code="sourceCode"
+          @mounted="sourceMounted"
+          @codeChange="updateSourceCode"
+          >
+      </Monaco>
+    </div>
+    <div class="right">
+      <Monaco
+          height="200"
+          theme="vs-dark"
+          :code="testCode"
+          @mounted="testsMounted"
+          @codeChange="updateTestCode"
+          >
+      </Monaco>
+    </div>
+    <button @click="runCodeHandler">Run Code</button>
+    <button @click="testCodeHandler">Test Code</button>
     <div class="output">
       <p v-for="output in outputs">
         <span v-for="arg in output">{{arg}}</span>
       </p>
+    </div>
+    <div class="test-output">
+      <ul>
+        <li v-for="output in testOutputs" :class="output.class">{{output.msg}}</li>
+      </ul>
     </div>
     <div id="mocha"></div>
   </div>
@@ -28,36 +47,90 @@ module.exports = {
   },
   data: function() {
     return {
-      outputs: []
+      outputs: [],
+      testOutputs: [],
+      sourceCode: localStorage.getItem('source') || '//',
+      testCode: localStorage.getItem('test') || '//'
     }
   },
   methods: {
-    onMounted(editor) {
-      this.editor = editor;
+    sourceMounted(editor) {
+      this.sourceEditor = editor;
     },
-    clickHandler() {
-      const code = this.editor.getValue();
-      const runnerLog = [];
+    testsMounted(editor) {
+      this.testEditor = editor;
+    },
+    updateSourceCode() {
+      localStorage.setItem('source', this.sourceEditor.getValue())
+    },
+    updateTestCode() {
+      localStorage.setItem('test', this.testEditor.getValue())
+    },
+    runCode(code) {
+      const outputs = [];
       const windowLog = console.log;
       console.log = function() {
         const list = [...arguments];
-        runnerLog.push(list);
+        outputs.push(list);
         windowLog.apply(console, list);
       };
       (new Function(code))();
-      this.outputs = runnerLog;
+      return outputs;
     },
-    testCode() {
-      const foo = 'thing';
-      let b = null;
-      try {
-        b = expect(foo).to.equal('bar');
-      } catch(e) {
-        b = e
-      }
-      const a = expect(foo).not.to.equal('bar');
-      this.outputs = [a, b];
+    runCodeHandler() {
+      const code = this.sourceEditor.getValue();
+      this.outputs = this.runCode(code);
+    },
+    testCodeHandler() {
+      const testCode = this.testEditor.getValue();
+      const sourceCode = this.sourceEditor.getValue();
+      const codeArr = testCode.split('expect');
+      this.testOutputs = [];
+      codeArr.shift();
+      const wrappedCodeArr = codeArr.map((expect, i) => {
+        return {
+          test: `expect${expect}`,
+          wrapped: `
+            ${sourceCode}
+            let temp;
+            try {
+              temp = expect${expect};
+            } catch(e) {
+              temp = e;
+            }
+            return temp;
+          `
+        }
+      });
+      wrappedCodeArr.forEach(code => {
+        const ret = (new Function(code.wrapped))();
+        if (ret.constructor.name === 'AssertionError') {
+          this.testOutputs.push({
+            msg: ret.message,
+            class: 'fail'
+          });
+        } else {
+          this.testOutputs.push({
+            msg: code.test,
+            class: 'pass'
+          });
+        }
+      });
     }
   }
 };
 </script>
+
+<style>
+.left, .right {
+  width: 50%;
+  float: left;
+  box-sizing: border-box;
+}
+.pass {
+  color: green;
+}
+.fail {
+  color: red;
+}
+</style>
