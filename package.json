@@ -25,7 +25,9 @@
     ]
   },
   "dependencies": {
-    "vue": "^2.1.0"
+    "chai": "^3.5.0",
+    "vue": "^2.1.0",
+    "vue-monaco-editor": "0.0.18"
   },
   "devDependencies": {
     "babel-core": "^6.0.0",

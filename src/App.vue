@@ -7,16 +7,20 @@
         >
     </Monaco>
     <button @click="clickHandler">Run Code</button>
+    <button @click="testCode">Test Code</button>
     <div class="output">
       <p v-for="output in outputs">
         <span v-for="arg in output">{{arg}}</span>
       </p>
     </div>
+    <div id="mocha"></div>
   </div>
 </template>
 
 <script>
 const Monaco = require('vue-monaco-editor');
+const { expect } = require('chai');
+window.expect = expect;
 
 module.exports = {
   components: {
@@ -42,6 +46,17 @@ module.exports = {
       };
       (new Function(code))();
       this.outputs = runnerLog;
+    },
+    testCode() {
+      const foo = 'thing';
+      let b = null;
+      try {
+        b = expect(foo).to.equal('bar');
+      } catch(e) {
+        b = e
+      }
+      const a = expect(foo).not.to.equal('bar');
+      this.outputs = [a, b];
     }
   }
 };
